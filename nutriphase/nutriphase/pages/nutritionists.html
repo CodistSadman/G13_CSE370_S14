@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Find Nutritionists</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>👩‍⚕️ Find Nutritionists</h1>
+            <p>Browse and subscribe to professional nutritionists.</p>
+        </div>
+
+        <div id="alert-box"></div>
+
+        <!-- Subscribe modal -->
+        <div id="subscribe-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:999;display:flex;align-items:center;justify-content:center">
+           <div class="card" style="width:400px">
+    <div class="card-title">Subscribe to <span id="modal-name"></span></div>
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
+        💳 Subscription Fee: <strong id="modal-fee" style="color:#e65100;">— BDT</strong><br>
+        <small style="color:#888;">25% of this fee (<strong id="modal-dev-cut"></strong> BDT) is automatically forwarded to the developer.</small>
+    </div>
+    <div class="form-group">
+        <label>Start Date</label>
+        <input type="date" id="sub-start">
+    </div>
+    <div class="form-group">
+        <label>End Date</label>
+        <input type="date" id="sub-end">
+    </div>
+    <div class="flex">
+        <button class="btn btn-primary" onclick="confirmSubscribe()">Subscribe</button>
+        <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+    </div>
+</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">All Nutritionists</div>
+            <div id="list" class="table-wrap">
+                <table>
+                    <thead><tr><th>Name</th><th>Qualification</th><th>Experience</th><th>Bio</th><th>Fee</th><th>Action</th></tr></thead>
+                    <tbody id="nut-table"><tr><td colspan="5" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">My Subscriptions</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nutritionist</th><th>Start</th><th>End</th><th>Action</th></tr></thead>
+                    <tbody id="sub-table"><tr><td colspan="4" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    requireRole('patient');
+
+    let selectedNSSN = null;
+let selectedFee  = 0;
+
+function openModal(nssn, name, fee) {
+    selectedNSSN = nssn;
+    selectedFee  = fee;
+    document.getElementById('modal-name').textContent = name;
+    document.getElementById('modal-fee').textContent  = fee + ' BDT';
+    document.getElementById('modal-dev-cut').textContent = Math.round(fee * 0.25);
+    document.getElementById('sub-start').value = new Date().toISOString().split('T')[0];
+    document.getElementById('subscribe-modal').classList.remove('hidden');
+    document.getElementById('subscribe-modal').style.display = 'flex';
+}
+    function closeModal() {
+        document.getElementById('subscribe-modal').style.display = 'none';
+    }
+
+    async function confirmSubscribe() {
+        const start = document.getElementById('sub-start').value;
+        const end   = document.getElementById('sub-end').value;
+        try {
+            await api('nutritionists.php?action=subscribe', 'POST', { N_SSN: selectedNSSN, start_date: start, end_date: end });
+            showAlert('alert-box', 'Subscribed successfully!', 'success');
+            closeModal();
+            loadSubscriptions();
+        } catch(e) { showAlert('alert-box', e.message, 'error'); }
+    }
+
+    async function unsubscribe(nssn) {
+        if (!confirm('Unsubscribe from this nutritionist?')) return;
+        try {
+            await api(`nutritionists.php?action=unsubscribe&N_SSN=${nssn}`, 'DELETE');
+            showAlert('alert-box', 'Unsubscribed.', 'success');
+            loadSubscriptions();
+        } catch(e) { showAlert('alert-box', e.message, 'error'); }
+    }
+
+    async function loadNutritionists() {
+        const tbody = document.getElementById('nut-table');
+        try {
+            const list = await api('nutritionists.php');
+            tbody.innerHTML = list.length ? list.map(n => `
+                <tr>
+                    <td><strong>${n.name}</strong></td>
+                    <td>${n.qualification || '—'}</td>
+                    <td>${n.experience_years || 0} yrs</td>
+                    <td>${n.bio || '—'}</td>
+                    <td><strong>${n.subscription_fee || 500} BDT</strong></td>
+                    <td><button class="btn btn-secondary btn-sm" onclick="openModal(${n.N_SSN}, '${n.name}', ${n.subscription_fee || 500})">Subscribe</button></td>
+                </tr>`).join('') : '<tr><td colspan="5" class="text-muted">No nutritionists registered yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="5">${e.message}</td></tr>`;
+        }
+    }
+
+    async function loadSubscriptions() {
+        const tbody = document.getElementById('sub-table');
+        try {
+            const subs = await api('nutritionists.php?action=my_subscriptions');
+            tbody.innerHTML = subs.length ? subs.map(s => `
+                <tr>
+                    <td>${s.name}</td>
+                    <td>${formatDate(s.start_date)}</td>
+                    <td>${formatDate(s.end_date)}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="unsubscribe(${s.N_SSN})">Unsubscribe</button></td>
+                </tr>`).join('') : '<tr><td colspan="4" class="text-muted">No subscriptions yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="4">${e.message}</td></tr>`;
+        }
+    }
+
+    loadNutritionists();
+    loadSubscriptions();
+</script>
+</body>
+</html>

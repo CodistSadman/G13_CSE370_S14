@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Suggestions</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>💡 Suggestions</h1>
+            <p>Manage health suggestions linked to predicted issues.</p>
+        </div>
+
+        <div id="alert-box"></div>
+
+        <div id="add-section" class="hidden card">
+            <div class="card-title">Add a Suggestion</div>
+            <div class="form-group">
+                <label>Predicted Issue</label>
+                <input type="text" id="issue" placeholder="e.g. Vitamin D Deficiency">
+            </div>
+            <div class="form-group">
+                <label>Suggestion</label>
+                <textarea id="suggestion-text" rows="3" placeholder="e.g. Get 15 minutes of sunlight daily and eat more fatty fish..."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="addSuggestion()">Save Suggestion</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">All Suggestions</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Predicted Issue</th><th>Suggestion</th><th>Action</th></tr></thead>
+                    <tbody id="sug-table"><tr><td colspan="3" class="text-muted">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    const user = getUser();
+    if (user.role === 'nutritionist') {
+        document.getElementById('add-section').classList.remove('hidden');
+    }
+
+    async function loadSuggestions() {
+        const tbody = document.getElementById('sug-table');
+        try {
+            const list = await api('suggestions.php');
+            tbody.innerHTML = list.length ? list.map(s => `
+                <tr>
+                    <td><strong>${s.predicted_issue}</strong></td>
+                    <td>${s.suggestion_text}</td>
+                    <td>
+                        ${user.role === 'nutritionist'
+                            ? `<button class="btn btn-danger btn-sm" onclick="deleteSuggestion(${s.suggestion_id})">Delete</button>`
+                            : '—'}
+                    </td>
+                </tr>`).join('') : '<tr><td colspan="3" class="text-muted">No suggestions yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="3">${e.message}</td></tr>`;
+        }
+    }
+
+    async function addSuggestion() {
+        const body = {
+            predicted_issue: document.getElementById('issue').value.trim(),
+            suggestion_text: document.getElementById('suggestion-text').value.trim()
+        };
+        if (!body.predicted_issue || !body.suggestion_text)
+            return showAlert('alert-box', 'Fill all fields.', 'error');
+        try {
+            await api('suggestions.php', 'POST', body);
+            showAlert('alert-box', 'Suggestion saved!', 'success');
+            document.getElementById('issue').value = '';
+            document.getElementById('suggestion-text').value = '';
+            loadSuggestions();
+        } catch(e) { showAlert('alert-box', e.message, 'error'); }
+    }
+
+    async function deleteSuggestion(id) {
+        if (!confirm('Delete this suggestion?')) return;
+        try {
+            await api(`suggestions.php?id=${id}`, 'DELETE');
+            loadSuggestions();
+        } catch(e) { alert(e.message); }
+    }
+
+    loadSuggestions();
+</script>
+</body>
+</html>

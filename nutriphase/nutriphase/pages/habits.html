@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Habits</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header flex space-between">
+            <div>
+                <h1>📋 Habit Tracker</h1>
+                <p>Log your daily calories and sleep hours.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Log Today's Habits</div>
+            <div id="alert-box"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="date">
+                </div>
+                <div class="form-group">
+                    <label>Calories (kcal)</label>
+                    <input type="number" id="calories" placeholder="e.g. 2000">
+                </div>
+                <div class="form-group">
+                    <label>Sleep (hours)</label>
+                    <input type="number" id="sleep_hours" placeholder="e.g. 7" min="0" max="24">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="logHabit()">Save Habit</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">History</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Date</th><th>Calories</th><th>Sleep (hrs)</th><th>Action</th></tr>
+                    </thead>
+                    <tbody id="habit-table">
+                        <tr><td colspan="4" class="text-muted">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    requireRole('patient');
+
+    // Default date to today
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+    async function loadHabits() {
+        const tbody = document.getElementById('habit-table');
+        try {
+            const habits = await api('habits.php');
+            tbody.innerHTML = habits.length ? habits.map(h => `
+                <tr>
+                    <td>${formatDate(h.date)}</td>
+                    <td>${h.calories} kcal</td>
+                    <td>${h.sleep_hours} hrs</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="deleteHabit(${h.record_id})">Delete</button>
+                    </td>
+                </tr>`).join('') : '<tr><td colspan="4" class="text-muted">No habits logged yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-muted">${e.message}</td></tr>`;
+        }
+    }
+
+    async function logHabit() {
+        const body = {
+            date:        document.getElementById('date').value,
+            calories:    document.getElementById('calories').value,
+            sleep_hours: document.getElementById('sleep_hours').value
+        };
+        if (!body.date || !body.calories || !body.sleep_hours)
+            return showAlert('alert-box', 'Please fill all fields.', 'error');
+        try {
+            await api('habits.php', 'POST', body);
+            showAlert('alert-box', 'Habit logged successfully!', 'success');
+            loadHabits();
+        } catch(e) { showAlert('alert-box', e.message, 'error'); }
+    }
+
+    async function deleteHabit(id) {
+        if (!confirm('Delete this record?')) return;
+        try {
+            await api(`habits.php?id=${id}`, 'DELETE');
+            loadHabits();
+        } catch(e) { alert(e.message); }
+    }
+
+    loadHabits();
+</script>
+</body>
+</html>

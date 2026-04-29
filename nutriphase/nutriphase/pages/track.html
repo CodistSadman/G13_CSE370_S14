@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Track Patients</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>📡 Patient Tracking</h1>
+            <p id="page-desc">Monitor your patients' habit records.</p>
+        </div>
+
+        <!-- Nutritionist: add tracking -->
+        <div id="add-section" class="hidden card">
+            <div class="card-title">Track a Habit Record</div>
+            <div id="alert-box"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Patient SSN</label>
+                    <input type="number" id="p-ssn" placeholder="Patient's SSN">
+                </div>
+                <div class="form-group">
+                    <label>Habit Record ID</label>
+                    <input type="number" id="record-id" placeholder="Record ID from habit logs">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="addTracking()">Start Tracking</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title" id="table-title">Tracked Records</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="col-person">Patient</th>
+                            <th>Date</th>
+                            <th>Calories</th>
+                            <th>Sleep (hrs)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="track-table"><tr><td colspan="5" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    const user = getUser();
+
+    if (user.role === 'nutritionist') {
+        document.getElementById('add-section').classList.remove('hidden');
+        document.getElementById('col-person').textContent = 'Patient';
+    } else {
+        document.getElementById('col-person').textContent = 'Tracked By';
+        document.getElementById('page-desc').textContent = 'See which nutritionists are tracking your records.';
+    }
+
+    async function loadTracking() {
+        const tbody = document.getElementById('track-table');
+        try {
+            const list = await api('track.php');
+            const nameCol = user.role === 'nutritionist' ? 'patient_name' : 'nutritionist_name';
+            tbody.innerHTML = list.length ? list.map(t => `
+                <tr>
+                    <td>${t[nameCol]}</td>
+                    <td>${formatDate(t.date)}</td>
+                    <td>${t.calories} kcal</td>
+                    <td>${t.sleep_hours} hrs</td>
+                    <td>
+                        ${user.role === 'nutritionist'
+                            ? `<button class="btn btn-danger btn-sm" onclick="removeTracking(${t.track_id})">Remove</button>`
+                            : '—'}
+                    </td>
+                </tr>`).join('') : '<tr><td colspan="5" class="text-muted">No tracked records yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="5">${e.message}</td></tr>`;
+        }
+    }
+
+    async function addTracking() {
+        const body = {
+            P_SSN:     document.getElementById('p-ssn').value,
+            record_id: document.getElementById('record-id').value,
+        };
+        if (!body.P_SSN || !body.record_id)
+            return showAlert('alert-box', 'Fill all fields.', 'error');
+        try {
+            await api('track.php', 'POST', body);
+            showAlert('alert-box', 'Tracking added!', 'success');
+            loadTracking();
+        } catch(e) { showAlert('alert-box', e.message, 'error'); }
+    }
+
+    async function removeTracking(id) {
+        if (!confirm('Remove tracking?')) return;
+        try {
+            await api(`track.php?track_id=${id}`, 'DELETE');
+            loadTracking();
+        } catch(e) { alert(e.message); }
+    }
+
+    loadTracking();
+</script>
+</body>
+</html>
