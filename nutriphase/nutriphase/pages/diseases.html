@@ -15,19 +15,6 @@
         </div>
 
         <div class="card">
-            <div class="card-title">Add a Condition</div>
-            <div id="alert-box"></div>
-            <div class="flex">
-                <div class="form-group" style="flex:1;margin:0">
-                    <select id="disease-select">
-                        <option value="">-- Select a disease --</option>
-                    </select>
-                </div>
-                <button class="btn btn-primary" onclick="addDisease()">Add</button>
-            </div>
-        </div>
-
-        <div class="card">
             <div class="card-title">My Conditions</div>
             <div class="table-wrap">
                 <table>
@@ -38,24 +25,12 @@
         </div>
     </div>
 </div>
+
 <script src="../assets/js/app.js"></script>
 <script src="../assets/js/sidebar.js"></script>
 <script>
     requireLogin();
     requireRole('patient');
-
-    async function loadAllDiseases() {
-        const select = document.getElementById('disease-select');
-        try {
-            const list = await api('diseases.php?action=all');
-            list.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.disease_id;
-                opt.textContent = d.disease_name;
-                select.appendChild(opt);
-            });
-        } catch(e) {}
-    }
 
     async function loadMyDiseases() {
         const tbody = document.getElementById('disease-table');
@@ -71,16 +46,6 @@
         }
     }
 
-    async function addDisease() {
-        const id = document.getElementById('disease-select').value;
-        if (!id) return showAlert('alert-box', 'Please select a disease.', 'error');
-        try {
-            await api('diseases.php', 'POST', { disease_id: id });
-            showAlert('alert-box', 'Condition added!', 'success');
-            loadMyDiseases();
-        } catch(e) { showAlert('alert-box', e.message, 'error'); }
-    }
-
     async function removeDisease(id) {
         if (!confirm('Remove this condition?')) return;
         try {
@@ -89,7 +54,6 @@
         } catch(e) { alert(e.message); }
     }
 
-    loadAllDiseases();
     loadMyDiseases();
 </script>
 </body>
