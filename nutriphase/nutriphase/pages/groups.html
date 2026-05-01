@@ -22,9 +22,13 @@
                     <label>Group Name</label>
                     <input type="text" id="group-name" placeholder="e.g. Diabetics Support">
                 </div>
-                
-                <!-- ❌ Access অংশ remove করা হয়েছে -->
-
+                <div class="form-group">
+                    <label>Access</label>
+                    <select id="group-access">
+                        <option value="public">Public</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
             </div>
             <button class="btn btn-primary" onclick="createGroup()">Create Group</button>
         </div>
@@ -50,10 +54,8 @@
         </div>
     </div>
 </div>
-
 <script src="../assets/js/app.js"></script>
 <script src="../assets/js/sidebar.js"></script>
-
 <script>
     requireLogin();
     requireRole('patient');
@@ -89,10 +91,11 @@
     }
 
     async function createGroup() {
-        const name = document.getElementById('group-name').value.trim();
+        const name   = document.getElementById('group-name').value.trim();
+        const access = document.getElementById('group-access').value;
         if (!name) return showAlert('alert-box', 'Enter a group name.', 'error');
         try {
-            await api('groups.php?action=create', 'POST', { group_name: name });
+            await api('groups.php?action=create', 'POST', { group_name: name, access });
             showAlert('alert-box', 'Group created!', 'success');
             document.getElementById('group-name').value = '';
             loadAllGroups(); loadMyGroups();
