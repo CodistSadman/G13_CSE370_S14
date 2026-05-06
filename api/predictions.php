@@ -6,7 +6,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $user   = requireAuth();
 $db     = getDB();
 
-// GET → patient sees their own predictions; nutritionist gets empty list
+// GET patient sees their own predictions, nutritionist  ekta empty list pabe 
 if ($method === 'GET') {
     if ($user['role'] === 'nutritionist') {
         respond([]);
@@ -23,7 +23,7 @@ if ($method === 'GET') {
     respond($predictions);
 }
 
-// POST → nutritionist creates a prediction for a patient
+// POST - nutriotinist ekta prediction create korbe for the patient ar patient kono prediction add korte parbena
 if ($method === 'POST') {
     if ($user['role'] !== 'nutritionist') respondError('Only nutritionists can add predictions.', 403);
     $data           = getInput();
