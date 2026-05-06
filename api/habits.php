@@ -7,9 +7,9 @@ $user   = requireAuth();
 $pSSN   = (int)$user['SSN'];
 $db     = getDB();
 
-// GET - get all habits for logged-in patient
+// patient theke datas nibe
 if ($method === 'GET') {
-    // Nutritionist can view a specific patient's habits via ?p_ssn=X
+    // Nutritionist can view patients habit pss diye
     if ($user['role'] === 'nutritionist' && isset($_GET['p_ssn'])) {
         $pSSN = (int)$_GET['p_ssn'];
     }
@@ -19,8 +19,8 @@ if ($method === 'GET') {
     respond($habits);
 }
 
-// POST - log a new habit
-if ($method === 'POST') {
+ 
+if ($method === 'POST') {   // notun habit nicche
     $data      = getInput();
     $date      = $db->real_escape_string($data['date'] ?? date('Y-m-d'));
     $calories  = (int)($data['calories'] ?? 0);
@@ -34,8 +34,8 @@ if ($method === 'POST') {
     respond(['message' => 'Habit logged.', 'record_id' => $db->insert_id], 201);
 }
 
-// DELETE - delete a habit record
-if ($method === 'DELETE') {
+
+if ($method === 'DELETE') {   //habit delete korbe
     $id = (int)($_GET['id'] ?? 0);
     $db->query("DELETE FROM habit WHERE record_id = $id AND P_SSN = $pSSN");
     respond(['message' => 'Habit deleted.']);
