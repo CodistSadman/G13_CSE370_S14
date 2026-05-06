@@ -9,8 +9,8 @@ $pSSN   = (int)($user['SSN'] ?? $user['P_SSN'] ?? $user['N_SSN'] ?? 0);
 if (!$pSSN) respondError('Could not determine user SSN.', 400);
 $db     = getDB();
 
-// GET /api/metrics.php
-if ($method === 'GET') {
+
+if ($method === 'GET') { 
     if ($user['role'] === 'nutritionist' && isset($_GET['p_ssn'])) {
     $pSSN = (int)$_GET['p_ssn'];
 }
@@ -20,7 +20,7 @@ if ($method === 'GET') {
     respond($metrics);
 }
 
-// POST /api/metrics.php
+
 if ($method === 'POST') {
     $data   = getInput();
     $date   = $db->real_escape_string($data['date'] ?? date('Y-m-d'));
