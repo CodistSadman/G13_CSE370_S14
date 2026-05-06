@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Friends</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>👥 Friends</h1>
+            <p>Connect with other patients on NutriPhase.</p>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Send Friend Request</div>
+            <div id="alert-box"></div>
+            <div class="flex">
+                <div class="form-group" style="flex:1;margin:0">
+                    <input type="number" id="receiver-ssn" placeholder="Enter receiver's SSN">
+                </div>
+                <button class="btn btn-primary" onclick="sendRequest()">Send Request</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📥 Incoming Requests</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Name</th><th>Email</th><th>Action</th></tr></thead>
+                    <tbody id="req-table"><tr><td colspan="3" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">✅ My Friends</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Name</th><th>Email</th><th>SSN</th></tr></thead>
+                    <tbody id="friends-table"><tr><td colspan="3" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+<div class="card">
+            <div class="card-title">💪 Friends' Health Stats</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Name</th><th>Last Updated</th><th>Calories</th><th>Sleep</th><th>Steps</th></tr>
+                    </thead>
+                    <tbody id="stats-table"><tr><td colspan="5" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    requireRole('patient');
+
+   async function loadFriends() {
+    const reqTbody    = document.getElementById('req-table');
+    const friendsTbody = document.getElementById('friends-table');
+    const statsTbody  = document.getElementById('stats-table');
+    try {
+        const data = await api('friends.php');
+
+        // Incoming requests
+        reqTbody.innerHTML = data.requests.length ? data.requests.map(r => `
+            <tr>
+                <td><strong>${r.sender_name}</strong></td>
+                <td>${r.sender_email}</td>
+                <td style="display:flex;gap:8px;">
+                    <button class="btn btn-primary btn-sm" onclick="acceptRequest(${r.request_id})">✅ Accept</button>
+                    <button class="btn btn-danger btn-sm" onclick="declineRequest(${r.request_id})">❌ Decline</button>
+                </td>
+            </tr>`).join('') : '<tr><td colspan="3" class="text-muted">No pending requests.</td></tr>';
+
+        // Friends list
+        friendsTbody.innerHTML = data.friends.length ? data.friends.map(f => `
+            <tr>
+                <td><strong>${f.name}</strong></td>
+                <td>${f.email}</td>
+                <td>${f.SSN}</td>
+            </tr>`).join('') : '<tr><td colspan="3" class="text-muted">No friends yet.</td></tr>';
+
+        // Friends' health stats
+        statsTbody.innerHTML = data.friends.length ? data.friends.map(f => `
+            <tr>
+                <td><strong>${f.name}</strong></td>
+                <td>${f.habit_date ? formatDate(f.habit_date) : '<span class="text-muted">—</span>'}</td>
+                <td>${f.calories != null ? f.calories + ' kcal' : '<span class="text-muted">—</span>'}</td>
+                <td>${f.sleep_hours != null ? f.sleep_hours + ' hrs' : '<span class="text-muted">—</span>'}</td>
+                <td>${f.step_count != null ? '🚶 ' + Number(f.step_count).toLocaleString() : '<span class="text-muted">—</span>'}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="text-muted">No friends yet.</td></tr>';
+
+    } catch(e) {
+        reqTbody.innerHTML = `<tr><td colspan="3">${e.message}</td></tr>`;
+    }
+}
+
+    async function sendRequest() {
+        const ssn = document.getElementById('receiver-ssn').value;
+        if (!ssn) return showAlert('alert-box', 'Enter a SSN.', 'error');
+        try {
+            await api('friends.php', 'POST', { receiver_P_SSN: ssn });
+            showAlert('alert-box', 'Friend request sent!', 'success');
+            document.getElementById('receiver-ssn').value = '';
+        } catch(e) { showAlert('alert-box', e.message, 'error'); }
+    }
+
+    async function acceptRequest(id) {
+        try {
+            await api('friends.php', 'PATCH', { request_id: id });
+            loadFriends();
+        } catch(e) { alert(e.message); }
+    }
+
+    async function declineRequest(id) {
+        try {
+            await api(`friends.php?id=${id}`, 'DELETE');
+            loadFriends();
+        } catch(e) { alert(e.message); }
+    }
+
+    loadFriends();
+</script>
+</body>
+</html>

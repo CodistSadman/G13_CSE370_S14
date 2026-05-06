@@ -1,0 +1,60 @@
+<<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – My Diseases</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>🩺 My Diseases</h1>
+            <p>Track your medical conditions.</p>
+        </div>
+
+        <div class="card">
+            <div class="card-title">My Conditions</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Disease</th><th>Action</th></tr></thead>
+                    <tbody id="disease-table"><tr><td colspan="2" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    requireRole('patient');
+
+    async function loadMyDiseases() {
+        const tbody = document.getElementById('disease-table');
+        try {
+            const list = await api('diseases.php');
+            tbody.innerHTML = list.length ? list.map(d => `
+                <tr>
+                    <td>${d.disease_name}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="removeDisease(${d.disease_id})">Remove</button></td>
+                </tr>`).join('') : '<tr><td colspan="2" class="text-muted">No conditions added yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="2">${e.message}</td></tr>`;
+        }
+    }
+
+    async function removeDisease(id) {
+        if (!confirm('Remove this condition?')) return;
+        try {
+            await api(`diseases.php?disease_id=${id}`, 'DELETE');
+            loadMyDiseases();
+        } catch(e) { alert(e.message); }
+    }
+
+    loadMyDiseases();
+</script>
+</body>
+</html>

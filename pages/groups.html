@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Groups</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>👥 Groups</h1>
+            <p>Join health groups and connect with others.</p>
+        </div>
+
+        <!-- Create Group -->
+        <div class="card">
+            <div class="card-title">Create a Group</div>
+            <div id="alert-box"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Group Name</label>
+                    <input type="text" id="group-name" placeholder="e.g. Diabetics Support">
+                </div>
+                <div class="form-group">
+                    <label>Access</label>
+                    <select id="group-access">
+                        <option value="public">Public</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="createGroup()">Create Group</button>
+        </div>
+
+        <!-- Pending Join Requests -->
+        <div class="card" id="requests-card" style="display:none">
+            <div class="card-title">📬 Pending Join Requests</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Group</th>
+                            <th>Patient</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requests-table">
+                        <tr>
+                            <td colspan="3" class="text-muted">No pending requests.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- All Groups -->
+        <div class="card">
+            <div class="card-title">All Groups</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Group Name</th>
+                            <th>Access</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-groups-table">
+                        <tr>
+                            <td colspan="3" class="text-muted">Loading…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- My Groups -->
+        <div class="card">
+            <div class="card-title">My Groups</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Group Name</th>
+                            <th>Access</th>
+                            <th>Role</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="my-groups-table">
+                        <tr>
+                            <td colspan="4" class="text-muted">Loading…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaderboard Modal -->
+<div id="leaderboard-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div class="card" style="width:100%;max-width:620px;margin:20px;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div class="card-title" style="margin:0" id="leaderboard-title">🏆 Leaderboard</div>
+            <button class="btn btn-secondary btn-sm" onclick="closeLeaderboard()">✕ Close</button>
+        </div>
+        <div id="leaderboard-body"></div>
+    </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+
+<script>
+    requireLogin();
+    requireRole('patient');
+
+    const me = getUser();
+
+    async function loadAllGroups() {
+        const tbody = document.getElementById('all-groups-table');
+
+        try {
+            const list = await api('groups.php?action=all');
+
+            tbody.innerHTML = list.length ? list.map(g => {
+                let actionButton = '';
+
+                if (g.join_status === 'accepted') {
+                    actionButton = `<button class="btn btn-outline btn-sm" disabled>Joined</button>`;
+                } else if (g.join_status === 'pending') {
+                    actionButton = `<button class="btn btn-outline btn-sm" disabled>Pending</button>`;
+                } else {
+                    if (g.access === 'private') {
+                        actionButton = `<button class="btn btn-secondary btn-sm" onclick="requestJoin(${g.group_id})">Join</button>`;
+                    } else {
+                        actionButton = `<button class="btn btn-secondary btn-sm" onclick="joinGroup(${g.group_id})">Join</button>`;
+                    }
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${g.group_name}</strong></td>
+                        <td>
+                            <span class="badge ${g.access === 'public' ? 'badge-green' : 'badge-yellow'}">
+                                ${g.access}
+                            </span>
+                        </td>
+                        <td>${actionButton}</td>
+                    </tr>
+                `;
+            }).join('') : `<tr><td colspan="3" class="text-muted">No groups yet.</td></tr>`;
+
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="3">${e.message}</td></tr>`;
+        }
+    }
+
+    async function loadMyGroups() {
+        const tbody = document.getElementById('my-groups-table');
+
+        try {
+            const list = await api('groups.php');
+
+            tbody.innerHTML = list.length ? list.map(g => {
+                const safeGroupName = String(g.group_name).replace(/'/g, "\\'");
+
+                return `
+                    <tr>
+                        <td><strong>${g.group_name}</strong></td>
+                        <td>
+                            <span class="badge ${g.access === 'public' ? 'badge-green' : 'badge-yellow'}">
+                                ${g.access}
+                            </span>
+                        </td>
+                        <td>
+                            ${
+                                parseInt(g.is_admin) === 1
+                                    ? '<span class="badge badge-blue">Admin</span>'
+                                    : '<span class="badge">Member</span>'
+                            }
+                        </td>
+                        <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary btn-sm" onclick="openLeaderboard(${g.group_id}, '${safeGroupName}')">🏆 Leaderboard</button>
+                            ${
+                                parseInt(g.is_admin) !== 1
+                                    ? `<button class="btn btn-danger btn-sm" onclick="leaveGroup(${g.group_id})">Leave</button>`
+                                    : `<button class="btn btn-danger btn-sm" onclick="deleteGroup(${g.group_id})">🗑 Delete Group</button>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('') : `<tr><td colspan="4" class="text-muted">You haven't joined any groups.</td></tr>`;
+
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="4">${e.message}</td></tr>`;
+        }
+    }
+
+    async function loadRequests() {
+        try {
+            const list = await api('groups.php?action=requests');
+            const card  = document.getElementById('requests-card');
+            const tbody = document.getElementById('requests-table');
+
+            if (!list.length) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+
+            tbody.innerHTML = list.map(r => `
+                <tr>
+                    <td>${r.group_name}</td>
+                    <td>${r.patient_name}</td>
+                    <td style="display:flex;gap:6px;">
+                        <button class="btn btn-primary btn-sm" onclick="handleRequest(${r.request_id}, 'approve')">✔ Approve</button>
+                        <button class="btn btn-danger btn-sm" onclick="handleRequest(${r.request_id}, 'reject')">✘ Reject</button>
+                    </td>
+                </tr>
+            `).join('');
+
+        } catch(e) {
+            console.log(e);
+        }
+    }
+
+    async function handleRequest(requestId, action) {
+        try {
+            await api(`groups.php?action=${action}_request`, 'POST', {
+                request_id: requestId
+            });
+
+            showAlert(
+                'alert-box',
+                action === 'approve' ? 'Request approved.' : 'Request rejected.',
+                'success'
+            );
+
+            loadRequests();
+            loadMyGroups();
+            loadAllGroups();
+
+        } catch(e) {
+            showAlert('alert-box', e.message, 'error');
+        }
+    }
+
+    async function createGroup() {
+        const name   = document.getElementById('group-name').value.trim();
+        const access = document.getElementById('group-access').value;
+
+        if (!name) {
+            return showAlert('alert-box', 'Enter a group name.', 'error');
+        }
+
+        try {
+            await api('groups.php?action=create', 'POST', {
+                group_name: name,
+                access: access
+            });
+
+            showAlert('alert-box', 'Group created! You are the admin.', 'success');
+            document.getElementById('group-name').value = '';
+
+            loadAllGroups();
+            loadMyGroups();
+            loadRequests();
+
+        } catch(e) {
+            showAlert('alert-box', e.message, 'error');
+        }
+    }
+
+    async function joinGroup(id) {
+        try {
+            await api('groups.php?action=join', 'POST', {
+                group_id: id
+            });
+
+            showAlert('alert-box', 'Joined group!', 'success');
+
+            loadAllGroups();
+            loadMyGroups();
+            loadRequests();
+
+        } catch(e) {
+            showAlert('alert-box', e.message, 'error');
+        }
+    }
+
+    async function requestJoin(id) {
+        try {
+            await api('groups.php?action=join', 'POST', {
+                group_id: id
+            });
+
+            showAlert('alert-box', 'Request sent. Pending until group admin accepts.', 'success');
+
+            loadAllGroups();
+            loadMyGroups();
+            loadRequests();
+
+        } catch(e) {
+            showAlert('alert-box', e.message, 'error');
+        }
+    }
+
+    async function leaveGroup(id) {
+        if (!confirm('Leave this group?')) return;
+
+        try {
+            await api(`groups.php?group_id=${id}`, 'DELETE');
+
+            showAlert('alert-box', 'Left group.', 'success');
+
+            loadAllGroups();
+            loadMyGroups();
+            loadRequests();
+
+        } catch(e) {
+            showAlert('alert-box', e.message, 'error');
+        }
+    }
+
+    async function deleteGroup(id) {
+        if (!confirm('Delete this group? This will remove all members and cannot be undone.')) return;
+
+        try {
+            await api(`groups.php?group_id=${id}&action=delete`, 'DELETE');
+
+            showAlert('alert-box', 'Group deleted.', 'success');
+
+            loadAllGroups();
+            loadMyGroups();
+            loadRequests();
+
+        } catch(e) {
+            showAlert('alert-box', e.message, 'error');
+        }
+    }
+
+    async function openLeaderboard(groupId, groupName) {
+        const modal = document.getElementById('leaderboard-modal');
+        const body  = document.getElementById('leaderboard-body');
+
+        document.getElementById('leaderboard-title').textContent = `🏆 ${groupName} — Leaderboard`;
+        body.innerHTML = '<p class="text-muted">Loading…</p>';
+        modal.style.display = 'flex';
+
+        try {
+            const data = await api(`groups.php?action=leaderboard&group_id=${groupId}`);
+
+            if (!data.length) {
+                body.innerHTML = '<p class="text-muted">No habit data yet for this group.</p>';
+                return;
+            }
+
+            const medals = ['🥇', '🥈', '🥉'];
+
+            body.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Member</th>
+                            <th>Avg Steps</th>
+                            <th>Avg Calories</th>
+                            <th>Avg Sleep</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map((r, i) => `
+                            <tr>
+                                <td>${medals[i] ?? i + 1}</td>
+                                <td><strong>${r.name}</strong></td>
+                                <td>🚶 ${Number(r.avg_steps).toLocaleString()}</td>
+                                <td>🔥 ${r.avg_calories} kcal</td>
+                                <td>😴 ${r.avg_sleep} hrs</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+        } catch(e) {
+            body.innerHTML = `<p class="text-muted">${e.message}</p>`;
+        }
+    }
+
+    function closeLeaderboard() {
+        document.getElementById('leaderboard-modal').style.display = 'none';
+    }
+
+    loadAllGroups();
+    loadMyGroups();
+    loadRequests();
+</script>
+</body>
+</html>

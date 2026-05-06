@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NutriPhase – Appointments</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+<div class="layout">
+
+    <div id="sidebar"></div>
+
+    <div class="main-content">
+
+        <div class="page-header">
+            <h1>📅 Appointments</h1>
+            <p>Request and manage appointments between patients and nutritionists.</p>
+        </div>
+
+        <div id="alert-box"></div>
+
+        <div id="patient-section" class="card hidden">
+
+            <div class="card-title">Request an Appointment</div>
+
+            <div class="form-row">
+
+                <div class="form-group">
+                    <label>Nutritionist SSN</label>
+                    <input type="number" id="nutritionist-ssn" placeholder="Enter nutritionist SSN">
+                </div>
+
+                <div class="form-group">
+                    <label>Appointment Date</label>
+                    <input type="date" id="appointment-date">
+                </div>
+
+                <div class="form-group">
+                    <label>Appointment Time</label>
+                    <input type="time" id="appointment-time">
+                </div>
+
+                <div class="form-group">
+                    <label>Reason</label>
+                    <input type="text" id="reason" placeholder="Example: Diet consultation">
+                </div>
+
+            </div>
+
+            <button onclick="createAppointment()">Send Request</button>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-title">Appointment List</div>
+
+            <div id="appointment-list">Loading appointments...</div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+
+<script>
+const user = getUser();
+
+if (!user) {
+    window.location.href = 'login.html';
+}
+
+const isPatient = user.role === 'patient' || user.Role === 'patient';
+const isNutritionist = user.role === 'nutritionist' || user.Role === 'nutritionist';
+
+if (isPatient) {
+    document.getElementById('patient-section').classList.remove('hidden');
+}
+
+function showAlert(message, type = 'success') {
+
+    const box = document.getElementById('alert-box');
+
+    box.innerHTML = `<div class="alert ${type}">${message}</div>`;
+
+    setTimeout(() => {
+        box.innerHTML = '';
+    }, 3000);
+}
+
+async function loadAppointments() {
+
+    const list = document.getElementById('appointment-list');
+
+    try {
+
+        const res = await fetch('../api/appointments.php', {
+            method: 'GET',
+            credentials: 'include'
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            list.innerHTML = `<p>${data.error || 'Failed to load appointments'}</p>`;
+            return;
+        }
+
+        if (!data.length) {
+            list.innerHTML = '<p>No appointments found.</p>';
+            return;
+        }
+
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>${isPatient ? 'Nutritionist' : 'Patient'}</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        ${isNutritionist ? '<th>Action</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        data.forEach(item => {
+
+            html += `
+                <tr>
+                    <td>${item.appointment_id}</td>
+                    <td>${isPatient ? item.nutritionist_name : item.patient_name}</td>
+                    <td>${item.appointment_date}</td>
+                    <td>${item.appointment_time}</td>
+                    <td>${item.reason || '-'}</td>
+                    <td>${item.status}</td>
+                    ${isNutritionist ? getActionButtons(item) : ''}
+                </tr>
+            `;
+
+        });
+
+        html += `
+                </tbody>
+            </table>
+        `;
+
+        list.innerHTML = html;
+
+    } catch (error) {
+
+        list.innerHTML = '<p>Something went wrong while loading appointments.</p>';
+
+    }
+}
+
+function getActionButtons(item) {
+
+    if (item.status !== 'pending') {
+        return '<td>-</td>';
+    }
+
+    return `
+        <td>
+            <button onclick="updateAppointment(${item.appointment_id}, 'accept')">Accept</button>
+            <button onclick="updateAppointment(${item.appointment_id}, 'reject')">Reject</button>
+        </td>
+    `;
+}
+
+async function createAppointment() {
+
+    const N_SSN = document.getElementById('nutritionist-ssn').value;
+    const appointment_date = document.getElementById('appointment-date').value;
+    const appointment_time = document.getElementById('appointment-time').value;
+    const reason = document.getElementById('reason').value;
+
+    if (!N_SSN || !appointment_date || !appointment_time) {
+        showAlert('Please fill nutritionist SSN, date and time.', 'error');
+        return;
+    }
+
+    try {
+
+        const res = await fetch('../api/appointments.php?action=create', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                N_SSN: N_SSN,
+                appointment_date: appointment_date,
+                appointment_time: appointment_time,
+                reason: reason
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            showAlert(data.error || 'Failed to create appointment', 'error');
+            return;
+        }
+
+        showAlert(data.message || 'Appointment request sent successfully');
+
+        document.getElementById('nutritionist-ssn').value = '';
+        document.getElementById('appointment-date').value = '';
+        document.getElementById('appointment-time').value = '';
+        document.getElementById('reason').value = '';
+
+        loadAppointments();
+
+    } catch (error) {
+
+        showAlert('Something went wrong.', 'error');
+
+    }
+}
+
+async function updateAppointment(appointment_id, action) {
+
+    try {
+
+        const res = await fetch(`../api/appointments.php?action=${action}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                appointment_id: appointment_id
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            showAlert(data.error || 'Failed to update appointment', 'error');
+            return;
+        }
+
+        showAlert(data.message || 'Appointment updated successfully');
+
+        loadAppointments();
+
+    } catch (error) {
+
+        showAlert('Something went wrong.', 'error');
+
+    }
+}
+
+loadAppointments();
+</script>
+
+</body>
+</html>

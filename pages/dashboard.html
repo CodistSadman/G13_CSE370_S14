@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content" id="main">
+        <div class="page-header">
+            <h1 id="greeting">Welcome back 👋</h1>
+            <p id="sub-heading">Here's your health summary for today.</p>
+        </div>
+
+        <div class="ssn-card">
+            🪪 Your SSN: <strong id="user-ssn">—</strong>
+        </div>
+
+        <!-- Quick Step Log -->
+        <div id="step-log-section" class="hidden card">
+            <div id="step-alert"></div>
+            <div class="flex" style="gap:05px;align-items:flex-end">
+                <div class="form-group" style="flex:1;margin:0"></div>
+            </div>
+        </div>
+
+        <div class="stat-grid" id="stats"></div>
+
+        <div id="patient-section">
+            <div class="card">
+                <div class="card-title">📋 Recent Habits</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Calories</th>
+                                <th>Sleep (hrs)</th>
+                                <th>Steps</th>
+                            </tr>
+                        </thead>
+                        <tbody id="habit-table"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">⚖️ Latest Body Metrics</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Height (cm)</th>
+                                <th>Weight (kg)</th>
+                                <th>BMI</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metrics-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="nutritionist-section" class="hidden">
+            <div class="card">
+                <div class="card-title">🧑‍🤝‍🧑 Your Patients</div>
+                <p class="text-muted">Go to <a href="patients.html">Patients</a> to manage your tracked patients.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js?v=99"></script>
+
+<script>
+    requireLogin();
+
+    const user = getUser();
+
+    document.getElementById('greeting').textContent = `Welcome back, ${user.name} 👋`;
+    document.getElementById('user-ssn').textContent = user.SSN || '—';
+
+    document.getElementById('sub-heading').textContent =
+        user.role === 'patient'
+            ? 'Here\'s your health summary.'
+            : 'Here\'s your nutritionist dashboard.';
+
+    async function loadDashboard() {
+        const stats = document.getElementById('stats');
+        stats.innerHTML = '';
+
+        if (user.role === 'patient') {
+            document.getElementById('patient-section').classList.remove('hidden');
+            document.getElementById('nutritionist-section').classList.add('hidden');
+
+            try {
+                const habits = await api('habits.php');
+                const tbody = document.getElementById('habit-table');
+
+                tbody.innerHTML = habits.slice(0, 5).map(h => `
+                    <tr>
+                        <td>${formatDate(h.date)}</td>
+                        <td>${h.calories} kcal</td>
+                        <td>${h.sleep_hours} hrs</td>
+                        <td>🚶 ${Number(h.step_count || 0).toLocaleString()}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="4" class="text-muted">No habits logged yet.</td></tr>';
+
+                const avgCal = habits.length
+                    ? Math.round(habits.reduce((s, h) => s + Number(h.calories), 0) / habits.length)
+                    : 0;
+
+                const avgSleep = habits.length
+                    ? (habits.reduce((s, h) => s + Number(h.sleep_hours), 0) / habits.length).toFixed(1)
+                    : 0;
+
+                const avgSteps = habits.length
+                    ? Math.round(habits.reduce((s, h) => s + Number(h.step_count || 0), 0) / habits.length)
+                    : 0;
+
+                stats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="label">Avg Calories</div>
+                        <div class="value">${avgCal}</div>
+                    </div>
+                    <div class="stat-card" style="border-color:#3498db">
+                        <div class="label">Avg Sleep</div>
+                        <div class="value">${avgSleep}h</div>
+                    </div>
+                    <div class="stat-card" style="border-color:#2ecc71">
+                        <div class="label">Avg Steps</div>
+                        <div class="value">${avgSteps.toLocaleString()}</div>
+                    </div>
+                    <div class="stat-card" style="border-color:#9b59b6">
+                        <div class="label">Habit Records</div>
+                        <div class="value">${habits.length}</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.log(error);
+            }
+
+            try {
+                const metrics = await api('metrics.php');
+                const tbody = document.getElementById('metrics-table');
+
+                tbody.innerHTML = metrics.slice(0, 5).map(m => {
+                    const bmi = m.height
+                        ? (m.weight / ((m.height / 100) ** 2)).toFixed(1)
+                        : '—';
+
+                    const cat = bmi !== '—'
+                        ? bmiCategory(parseFloat(bmi))
+                        : { label: '—', cls: 'badge-blue' };
+
+                    return `
+                        <tr>
+                            <td>${formatDate(m.date)}</td>
+                            <td>${m.height}</td>
+                            <td>${m.weight}</td>
+                            <td>${bmi}</td>
+                            <td><span class="badge ${cat.cls}">${cat.label}</span></td>
+                        </tr>
+                    `;
+                }).join('') || '<tr><td colspan="5" class="text-muted">No metrics logged yet.</td></tr>';
+            } catch (error) {
+                console.log(error);
+            }
+
+        } else {
+            document.getElementById('patient-section').classList.add('hidden');
+            document.getElementById('nutritionist-section').classList.remove('hidden');
+
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="label">Experience</div>
+                    <div class="value">${user.experience_years || 0}y</div>
+                </div>
+                <div class="stat-card" style="border-color:#3498db">
+                    <div class="label">Qualification</div>
+                    <div class="value" style="font-size:16px">${user.qualification || '—'}</div>
+                </div>
+            `;
+        }
+    }
+
+    loadDashboard();
+</script>
+</body>
+</html>

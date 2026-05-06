@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – Health Insights</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>🔮 Health Insights</h1>
+            <p id="page-desc">Personalized health predictions and action steps from your nutritionist.</p>
+        </div>
+
+        <!-- Nutritionist: create prediction -->
+        <div id="create-section" class="hidden card">
+            <div class="card-title">Add a Prediction</div>
+            <div id="alert-box"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Patient SSN</label>
+                    <input type="number" id="p-ssn" placeholder="Patient's SSN">
+                </div>
+                <div class="form-group">
+                    <label>Risk Level</label>
+                    <select id="risk">
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Predicted Issue</label>
+                <input type="text" id="issue" placeholder="e.g. Vitamin D Deficiency">
+            </div>
+            <div class="form-group">
+                <label>Suggestion / Action Step</label>
+                <input type="text" id="suggestion" placeholder="e.g. Take Vitamin D supplements daily and get morning sunlight">
+            </div>
+            <button class="btn btn-primary" onclick="savePrediction()">Save Prediction</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title" id="table-title">Predictions</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Issue</th>
+                            <th>Risk</th>
+                            <th id="col-action-header">Action / Suggestion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pred-table"><tr><td colspan="3" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    const user = getUser();
+
+    if (user.role === 'nutritionist') {
+        document.getElementById('create-section').classList.remove('hidden');
+        document.getElementById('page-desc').textContent = 'Create and manage health predictions for your patients.';
+        document.getElementById('table-title').textContent = 'Recent Predictions Sent';
+        document.getElementById('col-action-header').textContent = 'Suggestion';
+    }
+
+    async function loadPredictions() {
+        const tbody = document.getElementById('pred-table');
+        try {
+            const preds = await api('predictions.php');
+            tbody.innerHTML = preds.length ? preds.map(p => `
+                <tr>
+                    <td><strong>${p.predicted_issue}</strong></td>
+                    <td><span class="badge ${riskBadge(p.risk_level)}">${p.risk_level}</span></td>
+                    <td>${p.suggestion_text
+                        ? `<span style="color:#2e7d32;">✅ ${p.suggestion_text}</span>`
+                        : '<span class="text-muted">No suggestion</span>'}</td>
+                </tr>`).join('')
+              : '<tr><td colspan="3" class="text-muted">No predictions yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="3">${e.message}</td></tr>`;
+        }
+    }
+
+    async function savePrediction() {
+        const body = {
+            P_SSN:           document.getElementById('p-ssn').value,
+            predicted_issue: document.getElementById('issue').value,
+            risk_level:      document.getElementById('risk').value,
+            suggestion_text: document.getElementById('suggestion').value,
+        };
+        if (!body.P_SSN || !body.predicted_issue)
+            return showAlert('alert-box', 'Fill in Patient SSN and Predicted Issue.', 'error');
+        try {
+            await api('predictions.php', 'POST', body);
+            showAlert('alert-box', 'Prediction saved!', 'success');
+            document.getElementById('p-ssn').value    = '';
+            document.getElementById('issue').value    = '';
+            document.getElementById('suggestion').value = '';
+            document.getElementById('risk').value     = 'Low';
+            loadPredictions();
+        } catch(e) { showAlert('alert-box', e.message, 'error'); }
+    }
+
+    loadPredictions();
+</script>
+</body>
+</html>

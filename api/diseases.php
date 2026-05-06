@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – My Diseases</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>🩺 My Diseases</h1>
+            <p>Track your medical conditions and nutritionist predictions.</p>
+        </div>
+
+        <div id="alert-box"></div>
+
+        <div class="card">
+            <div class="card-title">My Conditions</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Disease</th><th>Action</th></tr></thead>
+                    <tbody id="disease-table"><tr><td colspan="2" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Nutritionist Predictions section -->
+        <div class="card">
+            <div class="card-title">🔮 Health Predictions from Nutritionist</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Predicted Issue</th><th>Risk Level</th><th>Suggestion</th></tr></thead>
+                    <tbody id="pred-table"><tr><td colspan="3" class="text-muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    requireRole('patient');
+
+    async function loadMyDiseases() {
+        const tbody = document.getElementById('disease-table');
+        try {
+            const list = await api('diseases.php');
+            tbody.innerHTML = list.length ? list.map(d => `
+                <tr>
+                    <td>${d.disease_name}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="removeDisease(${d.disease_id})">Remove</button></td>
+                </tr>`).join('') : '<tr><td colspan="2" class="text-muted">No conditions added yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="2">${e.message}</td></tr>`;
+        }
+    }
+
+    async function loadPredictions() {
+        const tbody = document.getElementById('pred-table');
+        try {
+            const preds = await api('predictions.php');
+            tbody.innerHTML = preds.length ? preds.map(p => `
+                <tr>
+                    <td><strong>${p.predicted_issue}</strong></td>
+                    <td><span class="badge ${riskBadge(p.risk_level)}">${p.risk_level}</span></td>
+                    <td>${p.suggestion_text || '<span class="text-muted">No suggestion</span>'}</td>
+                </tr>`).join('') : '<tr><td colspan="3" class="text-muted">No predictions from your nutritionist yet.</td></tr>';
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="3">${e.message}</td></tr>`;
+        }
+    }
+
+    async function removeDisease(id) {
+        if (!confirm('Remove this condition?')) return;
+        try {
+            await api(`diseases.php?disease_id=${id}`, 'DELETE');
+            loadMyDiseases();
+        } catch(e) { alert(e.message); }
+    }
+
+    loadMyDiseases();
+    loadPredictions();
+</script>
+</body>
+</html>

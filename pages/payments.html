@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriPhase – My Balance</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <div class="main-content">
+        <div class="page-header">
+            <h1>💰 My Balance</h1>
+            <p>Track your earnings from patient subscriptions.</p>
+        </div>
+
+        <div class="stat-grid" style="margin-bottom:24px;">
+            <div class="stat-card">
+                <div class="label">Total Collected</div>
+                <div class="value" id="total-earned">—</div>
+            </div>
+            <div class="stat-card" style="border-color:#e74c3c;">
+                <div class="label">Platform Fee (25%)</div>
+                <div class="value" id="total-deducted">—</div>
+            </div>
+            <div class="stat-card" style="border-color:#27ae60;">
+                <div class="label">Net Balance (75%)</div>
+                <div class="value" id="net-balance">—</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📋 Transaction History</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Patient</th>
+                            <th>Full Fee</th>
+                            <th>Platform Cut (25%)</th>
+                            <th>You Receive (75%)</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payment-table">
+                        <tr><td colspan="6" class="text-muted">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/sidebar.js"></script>
+<script>
+    requireLogin();
+    requireRole('nutritionist');
+
+    async function loadBalance() {
+        const tbody = document.getElementById('payment-table');
+        try {
+            const list = await api('payments.php');
+
+            // amount stored = platform cut (25%), so full fee = amount / 0.25, net = amount * 3
+            let platformTotal = 0;
+            list.forEach(p => platformTotal += parseInt(p.amount || 0));
+            const fullTotal = Math.round(platformTotal / 0.25);
+            const netTotal  = fullTotal - platformTotal;
+
+            document.getElementById('total-earned').textContent   = fullTotal    + ' BDT';
+            document.getElementById('total-deducted').textContent = platformTotal + ' BDT';
+            document.getElementById('net-balance').textContent    = netTotal     + ' BDT';
+
+            tbody.innerHTML = list.length ? list.map(p => {
+                const cut     = parseInt(p.amount || 0);
+                const full    = Math.round(cut / 0.25);
+                const youGet  = full - cut;
+                const patient = p.patient_name
+                    ? `${p.patient_name} <br><small class="text-muted">${p.P_SSN}</small>`
+                    : (p.P_SSN || '—');
+                return `<tr>
+                    <td>#${p.transaction_id}</td>
+                    <td>${patient}</td>
+                    <td>${full} BDT</td>
+                    <td style="color:#e74c3c;">${cut} BDT</td>
+                    <td style="color:#27ae60;"><strong>${youGet} BDT</strong></td>
+                    <td>${p.created_at ? formatDate(p.created_at) : '—'}</td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="6" class="text-muted">No transactions yet.</td></tr>';
+
+    } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Error: ${e.message}</td></tr>`;
+    document.getElementById('total-earned').textContent   = '—';
+    document.getElementById('total-deducted').textContent = '—';
+    document.getElementById('net-balance').textContent    = '—';
+}
+    }
+
+    loadBalance();
+</script>
+</body>
+</html>
