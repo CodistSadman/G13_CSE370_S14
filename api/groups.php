@@ -7,7 +7,6 @@ $user   = requireAuth();
 $pSSN   = (int)($user['SSN'] ?? $user['P_SSN'] ?? 0);
 $db     = getDB();
 
-// Ensure join request table exists
 $db->query("CREATE TABLE IF NOT EXISTS GROUP_JOIN_REQUEST (
     request_id INT AUTO_INCREMENT PRIMARY KEY,
     group_id INT NOT NULL,
@@ -17,12 +16,11 @@ $db->query("CREATE TABLE IF NOT EXISTS GROUP_JOIN_REQUEST (
     UNIQUE KEY unique_request (group_id, P_SSN)
 )");
 
-// ── GET ──────────────────────────────────────────────────
 if ($method === 'GET') {
     $action  = $_GET['action'] ?? '';
     $groupId = (int)($_GET['group_id'] ?? 0);
 
-    // All groups list with current user's membership/request status
+  
     if ($action === 'all') {
         $result = $db->query("
             SELECT 
@@ -56,7 +54,6 @@ if ($method === 'GET') {
         respond($list);
     }
 
-    // Pending join requests for groups I admin
     if ($action === 'requests') {
         $result = $db->query("
             SELECT r.request_id, r.group_id, r.P_SSN, r.status,
@@ -73,7 +70,6 @@ if ($method === 'GET') {
         respond($list);
     }
 
-    // Leaderboard — only for accepted group members
     if ($action === 'leaderboard') {
         if (!$groupId) respondError('group_id required.');
 
@@ -107,7 +103,6 @@ if ($method === 'GET') {
         respond($board);
     }
 
-    // My groups — only accepted groups
     $result = $db->query("
         SELECT ug.group_id, ug.group_name, ug.access,
                gm.role, gm.status,
@@ -124,7 +119,6 @@ if ($method === 'GET') {
     respond($list);
 }
 
-// ── POST ─────────────────────────────────────────────────
 if ($method === 'POST') {
     $action = $_GET['action'] ?? '';
     $data   = getInput();
@@ -150,7 +144,6 @@ if ($method === 'POST') {
         respond(['message' => 'Group created.', 'group_id' => $groupId], 201);
     }
 
-    // Join group — public: direct join, private: send request
     if ($action === 'join') {
         $groupId = (int)($data['group_id'] ?? 0);
 
@@ -162,7 +155,7 @@ if ($method === 'POST') {
 
         $group = $res->fetch_assoc();
 
-        // Check already accepted member
+       
         $already = $db->query("
             SELECT 1 
             FROM group_member 
@@ -176,7 +169,6 @@ if ($method === 'POST') {
             respondError('You are already a member.');
         }
 
-        // Private group: create or renew pending request
         if ($group['access'] === 'private') {
             $db->query("
                 INSERT INTO GROUP_JOIN_REQUEST (group_id, P_SSN, status)
@@ -191,7 +183,6 @@ if ($method === 'POST') {
             respond(['message' => 'Join request sent. Waiting for admin approval.']);
         }
 
-        // Public group: direct join
         $db->query("INSERT IGNORE INTO group_member (group_id, P_SSN, role, status) 
                     VALUES ($groupId, $pSSN, 'member', 'accepted')");
 
@@ -200,7 +191,6 @@ if ($method === 'POST') {
         respond(['message' => 'Joined group.']);
     }
 
-    // Approve join request — only group admin
     if ($action === 'approve_request') {
         $requestId = (int)($data['request_id'] ?? 0);
 
@@ -230,7 +220,6 @@ if ($method === 'POST') {
         respond(['message' => 'Request approved.']);
     }
 
-    // Reject join request — only group admin
     if ($action === 'reject_request') {
         $requestId = (int)($data['request_id'] ?? 0);
 
@@ -249,7 +238,6 @@ if ($method === 'POST') {
     }
 }
 
-// ── DELETE ────────────────────────────────────────────────
 if ($method === 'DELETE') {
     $groupId = (int)($_GET['group_id'] ?? 0);
     $action  = $_GET['action'] ?? '';
@@ -275,7 +263,6 @@ if ($method === 'DELETE') {
         respond(['message' => 'Group deleted.']);
     }
 
-    // Leave group — non-admins only
     $res = $db->query("SELECT owner_ssn FROM user_group WHERE group_id = $groupId LIMIT 1");
 
     if ($res && $res->num_rows > 0) {
