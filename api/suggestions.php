@@ -6,7 +6,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $user   = requireAuth();
 $db     = getDB();
 
-// GET → suggestions for patient's predicted issues
+// GET - suggestions for patient's predicted issues
 if ($method === 'GET') {
     $pSSN = (int)$user['SSN'];
     $result = $db->query("
@@ -20,14 +20,14 @@ if ($method === 'GET') {
     respond($list);
 }
 
-// POST → nutritionist/admin adds a suggestion for an issue
+// POST e nutritionist suggestons pescribe kore dite parbbe 
 if ($method === 'POST') {
     $data    = getInput();
     $issue   = $db->real_escape_string($data['predicted_issue'] ?? '');
     $text    = $db->real_escape_string($data['suggestion_text'] ?? '');
     if (!$issue || !$text) respondError('predicted_issue and suggestion_text required.');
 
-    // Use next available ID
+    // custom ekta ID create kore nicchi to ensure that the same person can have multiple suggestions and default set to 0+1=1
     $maxRes = $db->query("SELECT COALESCE(MAX(suggestion_id),0)+1 AS nid FROM SUGGESTION");
     $nid    = $maxRes->fetch_assoc()['nid'];
 
