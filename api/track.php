@@ -6,7 +6,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $user   = requireAuth();
 $db     = getDB();
 
-// GET → nutritionist sees all tracked records; patient sees who tracks them
+// this get is for nutri, eikhan theke track korbe
 if ($method === 'GET') {
     $ssn = (int)$user['SSN'];
 
@@ -35,8 +35,8 @@ if ($method === 'GET') {
     respond($list);
 }
 
-// POST → nutritionist starts tracking a patient's habit record
-// POST → nutritionist starts tracking a patient's habit record
+// 
+
 if ($method === 'POST') {
     if ($user['role'] !== 'nutritionist') respondError('Only nutritionists can track.', 403);
     $data = getInput();
@@ -45,7 +45,7 @@ if ($method === 'POST') {
 
     if (!$pSSN) respondError('P_SSN is required.');
 
-    // If record_id not supplied, auto-pick the latest habit record for this patient
+    // take the latest one
     $recordId = (int)($data['record_id'] ?? 0);
     if (!$recordId) {
         $res = $db->query("SELECT record_id FROM HABIT WHERE P_SSN = $pSSN ORDER BY date DESC LIMIT 1");
