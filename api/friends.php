@@ -7,7 +7,7 @@ $user   = requireAuth();
 $pSSN   = (int)$user['SSN'];
 $db     = getDB();
 
-// GET - received requests + friends with latest habit stats
+// GET - ekhane ami received request dekhte parbo ar hocche friend er most recent habits dekhte pabo
 if ($method === 'GET') {
     $requests = [];
     $result = $db->query("
@@ -41,7 +41,7 @@ if ($method === 'GET') {
     respond(['requests' => $requests, 'friends' => $friendsList]);
 }
 
-// POST - send a friend request
+// POST - friend request SEND korbe 
 if ($method === 'POST') {
     $data        = getInput();
     $receiverSSN = (int)($data['receiver_P_SSN'] ?? 0);
@@ -49,7 +49,7 @@ if ($method === 'POST') {
     if (!$receiverSSN)           respondError('Receiver SSN is required.');
     if ($receiverSSN === $pSSN)  respondError('Cannot send request to yourself.');
 
-    // Verify receiver exists
+    // receiver exit kore kina eta check kortesi
     $check = $db->query("SELECT SSN FROM user WHERE SSN = $receiverSSN LIMIT 1");
     if (!$check || $check->num_rows === 0) respondError('User not found.');
 
