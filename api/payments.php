@@ -12,8 +12,8 @@ if ($method === 'GET') {
 
     $nSSN = (int)$user['SSN'];
 
-    // Check if P_SSN column exists — add it if not
-    $col = $db->query("SHOW COLUMNS FROM payment LIKE 'P_SSN'");
+    
+    $col = $db->query("SHOW COLUMNS FROM payment LIKE 'P_SSN'"); //column check korbe 
     if ($col && $col->num_rows === 0) {
         $db->query("ALTER TABLE payment ADD COLUMN P_SSN INT(11) DEFAULT NULL");
     }
