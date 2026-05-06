@@ -54,7 +54,7 @@ if ($method === 'GET') {
 
         $stmt->execute();
 
-    ে
+    
         $result = $stmt->get_result();
 
         $appointments = [];
